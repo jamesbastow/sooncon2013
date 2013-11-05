@@ -61,11 +61,14 @@ int average;                            // average of previous ADC measurements
 long total = 0;                         // sum of current ADC measurements 
 int avcount = 1000;                     // number of samples for averaging
 int count;                              // loop counter for ADC measurements
-byte margin = 40;                       // volume threshold is +/- 200 mVp
+byte margin = 100;                       // volume threshold is +/- 200 mVp
                                         // could be +/- ???  (noise is ??? mVp)
 
 byte ecount = 0;                        // element counter for GRB array
 byte channel;                           // 
+
+uint32_t c1, c2, c3; // colors
+uint8_t c = 0;       // color index
 
 uint32_t grbled [8] =                // G, R, B values for 8 LED's colour
 {
@@ -81,7 +84,7 @@ void TaskAudio_setup()
   
   //  PORTB &= B11111000; 
   //cli();                                       // interrupt causes jitter
-  //analogReference(EXTERNAL);
+
   pinMode(A0, INPUT);
   t2 = t1 = micros();
 }
@@ -89,7 +92,12 @@ void TaskAudio_setup()
 void TaskAudio_loop() 
 {
    uint8_t pixel;
-   
+
+   // Colors are 120 degrees apart
+   c1 = Wheel(c+85);
+   c2 = Wheel(c-85);
+   c3 = Wheel(c++);
+      
    for (count = 0; count < avcount; count++)    // get many samples for DC level calc
    { 
      // optional adjustment to put sampling rate into audio range (not for Nyquist) 
@@ -103,11 +111,15 @@ void TaskAudio_loop()
     
      if (sample < (average - margin))         // for signal polarity negative 
      {                                        // values are for example 
-        grbled[ecount++] = 0x00FF00;
+        grbled[ecount++] = c1;
      }
      else if (sample > (average + margin))         // for signal polarity positive 
      {                                        // values are for example 
-        grbled[ecount++] = 0x0000FF;
+        grbled[ecount++] = c2;
+     }
+     else
+     {
+        grbled[ecount++] = c3;
      }
   
      if (ecount == 8) ecount = 0;            // grbled is filled up, start over
@@ -122,16 +134,15 @@ void TaskAudio_loop()
        ledStrip.setPixelColor(pixel, grbled[pixel]);
      }
 
-     // Update every 20ms
+     // Update every 20ms, and handle inputs
      t1 = micros();  
      if ((t1 - t2) > 20000) {
        t2 = t1;
        ledStrip.show();
        input();
      }
-   
-     //ledStrip.show();
    }   
+
    average = total / avcount;    // calc new DC level after 'avcount' samples
    total = 0;                    // reset for the next calculation
 }
